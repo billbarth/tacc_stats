@@ -55,6 +55,7 @@ class Auditor():
     for name, measure in self.measures.iteritems():
       self.metrics[name][job_data.id] = measure.test(jobpath,job_data)
 
+
   # Compare metric to threshold
   def test(self, Measure, threshold = 1.0):
     self.results[Measure.__name__] ={}

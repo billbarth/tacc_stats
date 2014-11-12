@@ -1,34 +1,28 @@
 #!/usr/bin/env python
-import sys,os,pwd
+from __future__ import print_function
+import sys,os,pwd,re
 import operator
 from datetime import datetime,timedelta
 import tacc_stats.analysis.exam as exam
 import tacc_stats.analysis.plot as plot
 import tacc_stats.cfg as cfg
 from tacc_stats.analysis.gen import tspl,tspl_utils
+from collections import defaultdict
 
-# Report top users by SU usage
-def top_jobs(auditor,name):
-    jobs = {}
-    total = {}
-    for jobid in auditor.metrics[name].keys():
-        if not auditor.metrics[name][jobid]: continue
-        acct = auditor.accts[jobid]
-        user = pwd.getpwuid(int(acct['uid']))[0]
-        sus = (acct['end_time']-acct['start_time'])*16.0/3600
-        jobs.setdefault(user,[]).append((jobid, 
-                                         sus,
-                                         auditor.metrics[name][jobid],
-                                         auditor.results[name][jobid]))
-        total[user] = total.get(user,0) + sus
+os.environ['DJANGO_SETTINGS_MODULE']='tacc_stats.site.tacc_stats_site.settings'
+sys.path.append(os.environ["HOME"]+"/.local")
 
-    sorted_totals = sorted(total.iteritems(),key=operator.itemgetter(1))
-    sorted_jobs = []
-    for user in sorted_totals[::-1]:
-        sorted_jobs.append((user,jobs[user[0]]))
-    
-    return sorted_jobs
+from tacc_stats.site.stampede.models import Job
 
+def get_executable(jobid):
+    job = Job.objects.get(id=jobid)
+    return job.exe
+
+def replace_name(exe,regex_dict):
+    for reg in regex_dict.keys():
+        if re.match(reg,exe):
+            return re.sub(reg+'.*',regex_dict[reg],exe)
+    return exe        
 
 # Generate list of files for a date range and test them
 def get_filelist(start,end,pickles_dir=None):
@@ -50,39 +44,38 @@ def get_filelist(start,end,pickles_dir=None):
         break
     return filelist
 
-def test_report(auditor, test_type):
-    name = test_type.__name__
-
-    print("---------------------------------------------")
-    print(name)
-    r = auditor.results[name].values()
-    passed = r.count(False)
-    failed = r.count(True)      
-    total = passed+failed
-
-    print("Jobs tested:",total)
-    if total > 0:
-        print("Percentage of jobs failed: {0:0.2f}".format(100*failed/float(total)))
-    else:
-        print("No jobs tested.")
-
-    job_paths = []
-    for user in top_jobs(auditor,name):        
-        print("{0:10} {1:0.2f}".format(user[0][0], user[0][1]))
-        test_report = ''
-        for job in user[1]:
-            if job[3]: 
-                job_paths.append(auditor.paths[job[0]])
-                test_report += "=>{0} {1:0.2f} {2:0.2f}\n".format(job[0],
-                                                                  job[1],
-                                                                  job[2])
-        print(test_report)
-    return job_paths
-
 
 def main(**args):
 
-    print args
+    equiv_patterns = {
+        r'^charmrun' : 'NAMD*',
+        r'^wrf' : 'WRF*',
+        r'^vasp' : 'VASP*',
+        r'^lmp_' : 'LAMMPS*',
+        r'^mdrun' : 'Gromacs*',
+        r'^dlpoly' : 'DL_POLY*',
+        r'^su3_' : 'MILC*',
+        r'^namd2' : 'NAMD*',
+        r'^pmemd' : 'Amber*',
+        r'^sander' : 'Amber*',
+        r'^charmm' : 'CHARMM*',
+        r'^c37b1'  : 'CHARMM*',
+        r'^arps_mpi' : 'ARPS*', 
+        r'^OpenSeesSP' : 'OpenSees*',
+        r'^xspecfem3D' : 'SpecFEM3D*',
+        r'^parsec.mpi' : 'PARSEC*',
+        r'^sm_chroma' : 'Chroma*',
+        r'^mitgcmuv' : 'MITGCM*', 
+        r'^padcirc' : 'ADCIRC*',
+        r'^chroma_laph_lex_3d' : 'Chroma*', 
+        r'^flash4' : 'Flash4*',
+        r'^siesta' : 'Siesta*', 
+        }
+
+    execs = [re.compile(x) for x in equiv_patterns.keys()]
+
+
+    print(args)
     # Stage exams
     aud = exam.Auditor(processes=args['p'])
     for test in args['test']:
@@ -92,36 +85,34 @@ def main(**args):
                   waynesses=args['waynesses'], aggregate=args['a'],
                   ignore_status=args['ignore_status'])
 
-        print 'Staging test: '+ test_type.__name__
+        print('Staging test: '+ test_type.__name__)
 
     # Compute metrics for exams
-    aud.run(get_filelist(args['start'],
+    filelist=get_filelist(args['start'],
                          args['end'],
-                         pickles_dir = args['dir']))
+                         pickles_dir = args['dir'])
+    aud.run(filelist)
 
-    # Test metrics for pass/fail.  Print results
-    failed_jobs = {}
+    my_results=defaultdict(dict)
+    header='Jobid,'
     for test in args['test']:
-        if len(args['t']) > 1: threshold = args['t'][args['test'].index(test)]
-        else: threshold = args['t']
+        header+=test+','
+        for job in aud.metrics[test].keys():
+            if aud.metrics[test][job]:
+                my_results[job][test]=aud.metrics[test][job]
 
-        test_type = getattr(sys.modules[exam.__name__],test)    
-        aud.test(test_type,threshold)
-        failed_jobs[test_type.__name__] = test_report(aud,test_type)
+    print(header+'Executable')
+    for job in my_results.keys():
+        exe=get_executable(job)
+        if exe and any(regex.match(exe) for regex in execs):
+            print(job+',', end="")
+            for test in args['test']:
+                try:
+                    print(str(my_results[job][test])+',',end='')
+                except KeyError:
+                    print(str(-1)+',',end='')
+            print(replace_name(exe,equiv_patterns))
 
-    # Make plots if desired
-    if not args['plot']: return failed_jobs
-    for test in args['test']:
-        if len(args['t']) > 1: threshold = args['t'][args['test'].index(test)]
-        else: threshold = args['t']
-
-        test_type = getattr(sys.modules[exam.__name__],test)    
-        plotter = plot.MasterPlot(header='Failed test: '+ test_type.__name__,
-                                  prefix=test_type.__name__,outdir=args['o'],
-                                  processes=args['p'],threshold=threshold,
-                                  wide=args['wide'],save=True)
-        plotter.run(failed[test_type.__name__])
-    return failed
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Run tests for jobs')

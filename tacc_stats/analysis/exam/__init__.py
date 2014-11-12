@@ -15,5 +15,6 @@ from tacc_stats.analysis.exam.packetsize import PacketSize
 #from tacc_stats.analysis.exam.gige_packetrate import GigEPacketRate
 #from tacc_stats.analysis.exam.gige_packetsize import GigEPacketSize
 from tacc_stats.analysis.exam.gige_bw import GigEBW
+from tacc_stats.analysis.exam.ib_bw import IBBW
 from tacc_stats.analysis.exam.exams import Auditor
 
