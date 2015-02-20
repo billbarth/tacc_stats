@@ -47,29 +47,34 @@ def get_filelist(start,end,pickles_dir=None):
 
 def main(**args):
 
+#    equiv_patterns = {
+#        r'^charmrun' : 'NAMD*',
+#        r'^wrf' : 'WRF*',
+#        r'^vasp' : 'VASP*',
+#        r'^lmp_' : 'LAMMPS*',
+#        r'^mdrun' : 'Gromacs*',
+#        r'^dlpoly' : 'DL_POLY*',
+#        r'^su3_' : 'MILC*',
+#        r'^namd2' : 'NAMD*',
+#        r'^pmemd' : 'Amber*',
+#        r'^sander' : 'Amber*',
+#        r'^charmm' : 'CHARMM*',
+#        r'^c37b1'  : 'CHARMM*',
+#        r'^arps_mpi' : 'ARPS*', 
+#        r'^OpenSeesSP' : 'OpenSees*',
+#        r'^xspecfem3D' : 'SpecFEM3D*',
+#        r'^parsec.mpi' : 'PARSEC*',
+#        r'^sm_chroma' : 'Chroma*',
+#        r'^mitgcmuv' : 'MITGCM*', 
+#        r'^padcirc' : 'ADCIRC*',
+#        r'^chroma_laph_lex_3d' : 'Chroma*', 
+#        r'^flash4' : 'Flash4*',
+#        r'^siesta' : 'Siesta*', 
+#        }
+
     equiv_patterns = {
-        r'^charmrun' : 'NAMD*',
-        r'^wrf' : 'WRF*',
-        r'^vasp' : 'VASP*',
-        r'^lmp_' : 'LAMMPS*',
-        r'^mdrun' : 'Gromacs*',
-        r'^dlpoly' : 'DL_POLY*',
-        r'^su3_' : 'MILC*',
-        r'^namd2' : 'NAMD*',
-        r'^pmemd' : 'Amber*',
-        r'^sander' : 'Amber*',
-        r'^charmm' : 'CHARMM*',
-        r'^c37b1'  : 'CHARMM*',
-        r'^arps_mpi' : 'ARPS*', 
-        r'^OpenSeesSP' : 'OpenSees*',
-        r'^xspecfem3D' : 'SpecFEM3D*',
-        r'^parsec.mpi' : 'PARSEC*',
-        r'^sm_chroma' : 'Chroma*',
-        r'^mitgcmuv' : 'MITGCM*', 
-        r'^padcirc' : 'ADCIRC*',
-        r'^chroma_laph_lex_3d' : 'Chroma*', 
-        r'^flash4' : 'Flash4*',
-        r'^siesta' : 'Siesta*', 
+        r'^vasp_std' : 'vasp_std',
+        r'^pw.x' : 'pw.x', 
         }
 
     execs = [re.compile(x) for x in equiv_patterns.keys()]
